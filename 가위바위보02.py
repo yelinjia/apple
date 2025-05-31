@@ -1,144 +1,157 @@
 import streamlit as st
 import random
-import pandas as pd
+import time
 
-# 초기 상태 세팅
+# 기본 세션 상태 초기화
 if "round" not in st.session_state:
-    st.session_state.round = 1
-if "results" not in st.session_state:
-    st.session_state.results = []
-if "win" not in st.session_state:
-    st.session_state.win = 0
-if "draw" not in st.session_state:
-    st.session_state.draw = 0
-if "lose" not in st.session_state:
-    st.session_state.lose = 0
-if "game_state" not in st.session_state:
-    st.session_state.game_state = "select"
+    st.session_state.round = 0
 if "user_choice" not in st.session_state:
     st.session_state.user_choice = None
 if "ai_choice" not in st.session_state:
     st.session_state.ai_choice = None
+if "results" not in st.session_state:
+    st.session_state.results = []  # [(user, ai, result)]
+if "game_state" not in st.session_state:
+    st.session_state.game_state = "start"  # start, countdown, result
+if "count" not in st.session_state:
+    st.session_state.count = 3
 
-st.set_page_config(page_title="가위바위보 카드게임", layout="centered")
-st.title("✊✌️✋ 가위바위보 카드게임")
-st.markdown(f"### 🎯 현재 라운드: {st.session_state.round}")
+# 가위바위보 이모지 맵핑
+emoji_map = {
+    "가위": "✌️",
+    "바위": "✊",
+    "보": "✋"
+}
 
 choices = ["가위", "바위", "보"]
-emoji_map = {"가위": "✌️", "바위": "✊", "보": "✋"}
 
-def get_ai_stats(results):
-    counts = {"가위": 0, "바위": 0, "보": 0}
-    for r in results:
-        counts[r["AI"]] += 1
-    total = sum(counts.values())
-    if total == 0:
-        return {k: 33.3 for k in counts}
-    return {k: round(v / total * 100, 1) for k, v in counts.items()}
+# 승부 계산 함수
+def get_winner(user, ai):
+    if user == ai:
+        return "무승부"
+    elif (user == "가위" and ai == "보") or \
+         (user == "바위" and ai == "가위") or \
+         (user == "보" and ai == "바위"):
+        return "유저 승"
+    else:
+        return "AI 승"
 
-def calc_win_prob(choice, ai_stats):
-    win_against = {"가위": "보", "바위": "가위", "보": "바위"}
-    return ai_stats.get(win_against[choice], 0)
+# 승률 계산 함수
+def calc_win_rate(user_choice):
+    if not st.session_state.results:
+        return 0.0
+    total = 0
+    wins = 0
+    for u, a, result in st.session_state.results:
+        if u == user_choice:
+            total += 1
+            if result == "유저 승":
+                wins += 1
+    return wins / total if total > 0 else 0.0
 
-ai_stats = get_ai_stats(st.session_state.results)
+# AI가 낼 확률(랜덤이지만 지금까지 유저선택 대비 예상승률 계산해서 표시)
+def calc_expected_win_rate(user_choice):
+    # AI가 랜덤이라고 가정
+    # 실제로는 AI가 1/3씩 낼거라 승률은 가위,바위,보 조합 평균
+    win_count = 0
+    for ai_choice in choices:
+        result = get_winner(user_choice, ai_choice)
+        if result == "유저 승":
+            win_count += 1
+    return win_count / 3
 
-# -- 게임 상태별 처리 --
+# 게임 초기화 함수
+def reset_game():
+    st.session_state.round = 0
+    st.session_state.user_choice = None
+    st.session_state.ai_choice = None
+    st.session_state.results = []
+    st.session_state.game_state = "start"
+    st.session_state.count = 3
 
-if st.session_state.game_state == "select":
-    st.markdown("#### 당신의 선택을 골라주세요:")
-    user_choice = st.radio("", choices, horizontal=True)
+st.title("🎮 가위바위보 카드게임 with 승률 & 카운트다운")
 
-    st.markdown("#### 🤖 다음 선택 승률 예측")
-    cols = st.columns(3)
-    for i, c in enumerate(choices):
-        with cols[i]:
-            prob = calc_win_prob(c, ai_stats)
-            st.metric(label=f"{emoji_map[c]} {c}", value=f"{prob}% 승률")
+# 초기화 버튼 - 항상 상단에 표시
+if st.button("🔄 초기화 (완전 리셋)"):
+    reset_game()
+    st.experimental_rerun()
 
-    if st.button("▶️ 선택 완료"):
-        st.session_state.user_choice = user_choice
-        st.session_state.game_state = "countdown"
-        st.session_state.count = 3
-        st.experimental_rerun()
+st.write(f"현재 라운드: {st.session_state.round}")
+
+# 게임 상태에 따라 화면 분기
+
+if st.session_state.game_state == "start":
+    st.write("가위, 바위, 보 중에서 선택하세요.")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button(f"가위 {emoji_map['가위']}"):
+            st.session_state.user_choice = "가위"
+            st.session_state.count = 3
+            st.session_state.game_state = "countdown"
+            st.experimental_rerun()
+    with col2:
+        if st.button(f"바위 {emoji_map['바위']}"):
+            st.session_state.user_choice = "바위"
+            st.session_state.count = 3
+            st.session_state.game_state = "countdown"
+            st.experimental_rerun()
+    with col3:
+        if st.button(f"보 {emoji_map['보']}"):
+            st.session_state.user_choice = "보"
+            st.session_state.count = 3
+            st.session_state.game_state = "countdown"
+            st.experimental_rerun()
+
+    # 각 선택지별 예상 승률 표시 (초기에는 AI가 랜덤 1/3 확률)
+    st.markdown("### 예상 승률 (각 선택지 선택시 승률)")
+    for c in choices:
+        rate = calc_expected_win_rate(c) * 100
+        st.write(f"{emoji_map[c]} {c}: 약 {rate:.1f}% 승률")
 
 elif st.session_state.game_state == "countdown":
-    placeholder = st.empty()
-    placeholder.markdown(f"<h1 style='text-align:center;'>{st.session_state.count}</h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='text-align:center; font-size:100px'>{st.session_state.count}</h1>", unsafe_allow_html=True)
+    st.write("결과가 곧 나옵니다...")
 
     if st.button("▶ 다음"):
         st.session_state.count -= 1
         if st.session_state.count == 0:
             st.session_state.ai_choice = random.choice(choices)
             st.session_state.game_state = "result"
-            del st.session_state.count
         st.experimental_rerun()
 
 elif st.session_state.game_state == "result":
-    user = st.session_state.user_choice
-    ai = st.session_state.ai_choice
+    st.markdown("<h1 style='text-align:center; font-size:80px;'>결과</h1>", unsafe_allow_html=True)
+    # 선택 이모지로 크게 보여주기
+    st.markdown(f"<h2 style='text-align:center;'>당신: {emoji_map[st.session_state.user_choice]} ({st.session_state.user_choice})</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align:center;'>AI: {emoji_map[st.session_state.ai_choice]} ({st.session_state.ai_choice})</h2>", unsafe_allow_html=True)
 
-    st.markdown(f"### 당신 선택: **{emoji_map[user]} {user}**")
-    st.markdown(f"<h2 style='color:#FF4B4B; text-align:center;'>🤖 AI 선택: <b style='font-size:40px;'>{emoji_map[ai]} {ai}</b></h2>", unsafe_allow_html=True)
+    # 승부 결과
+    result = get_winner(st.session_state.user_choice, st.session_state.ai_choice)
+    st.markdown(f"<h2 style='text-align:center; color: blue;'>{result}</h2>", unsafe_allow_html=True)
 
-    if user == ai:
-        result = "무승부"
-        st.session_state.draw += 1
-    elif (user == "가위" and ai == "보") or (user == "바위" and ai == "가위") or (user == "보" and ai == "바위"):
-        result = "승리"
-        st.session_state.win += 1
-    else:
-        result = "패배"
-        st.session_state.lose += 1
+    # 결과 기록 저장
+    st.session_state.results.append((st.session_state.user_choice, st.session_state.ai_choice, result))
+    st.session_state.round += 1
 
-    st.success(f"💥 결과: {result}!")
+    # 전체 결과 표 출력
+    st.markdown("### 게임 기록")
+    import pandas as pd
+    df = pd.DataFrame(st.session_state.results, columns=["유저 선택", "AI 선택", "결과"])
+    # 선택지 이모지 함께 표시
+    df["유저 선택"] = df["유저 선택"].map(lambda x: f"{emoji_map[x]} {x}")
+    df["AI 선택"] = df["AI 선택"].map(lambda x: f"{emoji_map[x]} {x}")
+    st.table(df)
 
-    st.session_state.results.append({
-        "라운드": st.session_state.round,
-        "플레이어": user,
-        "AI": ai,
-        "결과": result
-    })
+    # 다음 게임에서 각 선택지 선택 시 예상 승률 출력
+    st.markdown("### 다음 게임 예상 승률")
+    for c in choices:
+        rate = calc_win_rate(c) * 100
+        st.write(f"{emoji_map[c]} {c}: 현재 승률 약 {rate:.1f}%")
 
-    df = pd.DataFrame(st.session_state.results)
-    st.markdown("### 📊 경기 결과 요약")
-    st.dataframe(df, use_container_width=True)
-
-    total_games = len(df)
-    win = st.session_state.win
-    draw = st.session_state.draw
-    lose = st.session_state.lose
-    win_rate = round(win / total_games * 100, 1) if total_games > 0 else 0.0
-
-    st.markdown(f"#### 🧮 현재까지 전적: {win}승 / {draw}무 / {lose}패")
-    st.metric(label="🏆 승률", value=f"{win_rate} %")
-
-    # 다음 선택 승률 다시 계산
-    ai_stats = get_ai_stats(st.session_state.results)
-    st.markdown("#### 🤖 다음 선택 승률 예측")
-    cols = st.columns(3)
-    for i, c in enumerate(choices):
-        with cols[i]:
-            prob = calc_win_prob(c, ai_stats)
-            st.metric(label=f"{emoji_map[c]} {c}", value=f"{prob}% 승률")
-
-    if st.button("➡️ 다음 게임"):
-        st.session_state.round += 1
-        st.session_state.game_state = "select"
+    # 버튼으로 다음 게임 시작
+    if st.button("▶ 다음 게임"):
         st.session_state.user_choice = None
         st.session_state.ai_choice = None
+        st.session_state.game_state = "start"
         st.experimental_rerun()
-
-# -- 전체 리셋 --
-st.markdown("---")
-if st.button("🔄 전체 리셋"):
-    st.session_state.clear()
-    # 초기값 재설정
-    st.session_state.round = 1
-    st.session_state.results = []
-    st.session_state.win = 0
-    st.session_state.draw = 0
-    st.session_state.lose = 0
-    st.session_state.game_state = "select"
-    st.session_state.user_choice = None
-    st.session_state.ai_choice = None
-    st.experimental_rerun()
