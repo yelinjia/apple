@@ -1,7 +1,6 @@
 import streamlit as st
 import random
 import pandas as pd
-import time
 
 # 초기화 함수
 def reset_game():
@@ -51,13 +50,11 @@ elif st.session_state.game_state == "countdown":
     st.markdown(f"<h1 style='text-align:center; font-size:100px'>{st.session_state.count}</h1>", unsafe_allow_html=True)
     st.write("결과가 곧 나옵니다...")
 
-    # 카운트다운 진행
-    time.sleep(1)
-    st.session_state.count -= 1
-
-    if st.session_state.count == 0:
-        st.session_state.ai_choice = random.choice(choices)
-        st.session_state.game_state = "result"
+    if st.button("▶ 다음"):
+        st.session_state.count -= 1
+        if st.session_state.count == 0:
+            st.session_state.ai_choice = random.choice(choices)
+            st.session_state.game_state = "result"
 
 elif st.session_state.game_state == "result":
     user = st.session_state.user_choice
@@ -84,5 +81,3 @@ elif st.session_state.game_state == "result":
         st.session_state.ai_choice = None
         st.session_state.game_state = "start"
         st.session_state.count = 3
-
-# Streamlit이 상태 변화를 감지해서 자동으로 UI가 다시 그려짐
